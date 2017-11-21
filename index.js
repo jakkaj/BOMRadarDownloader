@@ -110,8 +110,12 @@ class getter {
 module.exports = function (context, myTimer) {
     return __awaiter(this, void 0, void 0, function* () {
         context.log('Running radar job');
+        try {
+            fs.mkdirSync('./temp');
+        }
+        catch (e) { }
         var g = new getter(context);
         yield g.get();
-        context.done();
+        //context.done();
     });
 };

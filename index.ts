@@ -137,7 +137,12 @@ module.exports = async function (context:any, myTimer:any) {
     
     context.log('Running radar job');   
     
+    try{
+        fs.mkdirSync('./temp');
+    }catch(e){}
+    
+
     var g = new getter(context);
     await g.get();
-    context.done();
+    //context.done();
 };
