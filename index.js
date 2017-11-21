@@ -11,22 +11,24 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ftpClient = require("promise-ftp");
 const azure = require("azure-storage");
 const fs = require("fs");
+const del = require("del");
 require('dotenv').config();
 class blobs {
-    constructor() {
+    constructor(context) {
         this.container = "radar";
         this.blobService = azure.createBlobService();
+        this.context = context;
     }
     uploadFile(localFile, remoteFile) {
         return new Promise((good, bad) => {
-            this.blobService.createBlockBlobFromLocalFile(this.container, remoteFile, localFile, function (error, result, response) {
+            this.blobService.createBlockBlobFromLocalFile(this.container, remoteFile, localFile, (error, result, response) => {
                 if (!error) {
-                    console.log(`Uploaded: ${remoteFile}`);
+                    this.context.log(`Uploaded: ${remoteFile}`);
                     good(true);
                     // file uploaded
                 }
                 else {
-                    console.log("Error uploading");
+                    this.context.log("Error uploading");
                     bad(error);
                 }
             });
@@ -46,9 +48,15 @@ class blobs {
     }
 }
 class getter {
-    constructor() {
+    constructor(context) {
         this.client = new ftpClient();
-        this.blob = new blobs();
+        this.blob = new blobs(context);
+        this.context = context;
+    }
+    clean() {
+        return __awaiter(this, void 0, void 0, function* () {
+            yield del(['temp/*']);
+        });
     }
     get() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -66,16 +74,16 @@ class getter {
                     var fn = this.getName(listItem.name);
                     if (fn != "") {
                         var exists = yield this.blob.checkFile(fn);
-                        console.log(`${exists} - ${fn}`);
+                        this.context.log(`${exists} - ${fn}`);
                         if (!exists) {
                             var dl = yield this.client.get(`/anon/gen/radar/${listItem.name}`);
                             yield this.saveStream(listItem.name, dl);
                             yield this.blob.uploadFile(`temp/${listItem.name}`, fn);
                         }
                     }
-                    //console.log(listItem);
                 }
             }
+            this.clean();
             return listResult;
         });
     }
@@ -99,5 +107,11 @@ class getter {
         return `${year}/${month}/${day}/${hour}.png`;
     }
 }
-var g = new getter();
-g.get();
+module.exports = function (context, myTimer) {
+    return __awaiter(this, void 0, void 0, function* () {
+        context.log('Running radar job');
+        var g = new getter(context);
+        yield g.get();
+        context.done();
+    });
+};

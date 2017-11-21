@@ -2,6 +2,7 @@ import * as ftpClient from 'promise-ftp';
 import * as azure from 'azure-storage';
 import { ErrorOrResult } from 'azure-storage';
 import * as fs from 'fs';
+import * as del from 'del';
 
 require('dotenv').config();
 
@@ -12,20 +13,23 @@ class blobs{
 
     private blobService: azure.BlobService;
     private container:string = "radar";
-    constructor() {
+    private context:any;
+    
+    constructor(context:any) {
         this.blobService = azure.createBlobService(); 
+        this.context = context;
     }
 
     public uploadFile(localFile:string, remoteFile:string):Promise<boolean>{
         return new Promise((good, bad)=>{
             this.blobService.createBlockBlobFromLocalFile(this.container, remoteFile,
-                 localFile, function(error, result, response){
+                 localFile, (error, result, response)=>{
                 if(!error){
-                    console.log(`Uploaded: ${remoteFile}`);
+                    this.context.log(`Uploaded: ${remoteFile}`);
                     good(true);
                   // file uploaded
                 }else{
-                    console.log("Error uploading");
+                    this.context.log("Error uploading");
                     bad(error);
                     
                 }
@@ -52,10 +56,15 @@ class getter {
 
     private client: any;
     private blob:blobs;
-
-    constructor() {
+    private context:any;
+    constructor(context:any) {
         this.client = new ftpClient();
-        this.blob = new blobs();
+        this.blob = new blobs(context);
+        this.context=context;
+    }
+
+    async clean(){
+        await del(['temp/*']);
     }
 
     async get(): Promise<string[]> {
@@ -81,18 +90,17 @@ class getter {
                 var fn = this.getName(listItem.name);
                 if(fn != ""){
                     var exists = await this.blob.checkFile(fn);
-                    console.log(`${exists} - ${fn}`);
+                    this.context.log(`${exists} - ${fn}`);
 
                     if(!exists){
                         var dl = await this.client.get(`/anon/gen/radar/${listItem.name}`);
                         await this.saveStream(listItem.name, dl);
                         await this.blob.uploadFile(`temp/${listItem.name}`, fn);
                     }
-                }
-                //console.log(listItem);
+                }                
             }
         }
-
+        this.clean();
         return listResult;
     }
 
@@ -125,6 +133,11 @@ class getter {
     }
 }
 
-var g = new getter();
-
-g.get();
+module.exports = async function (context:any, myTimer:any) {
+    
+    context.log('Running radar job');   
+    
+    var g = new getter(context);
+    await g.get();
+    context.done();
+};
