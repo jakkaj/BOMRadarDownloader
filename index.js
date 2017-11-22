@@ -37,11 +37,19 @@ class blobs {
     checkFile(filePath) {
         return new Promise((good, bad) => {
             this.blobService.doesBlobExist(this.container, filePath, (error, result) => {
+                this.context.log(`Check blob for ${filePath}`);
                 if (error) {
+                    this.context.log(`Blob error: ${error}`);
                     bad(error);
                 }
                 else {
-                    good(result.exists);
+                    if (result) {
+                        good(result.exists);
+                    }
+                    else {
+                        this.context.log(`No result was found!`);
+                        good(false);
+                    }
                 }
             });
         });
@@ -55,7 +63,7 @@ class getter {
     }
     clean() {
         return __awaiter(this, void 0, void 0, function* () {
-            yield del(['temp/*']);
+            yield del(['D:/local/Temp/output/*']);
         });
     }
     get() {
@@ -73,12 +81,13 @@ class getter {
                     listResult.push(listItem.name);
                     var fn = this.getName(listItem.name);
                     if (fn != "") {
+                        this.context.log(`Checking blob: ${fn}`);
                         var exists = yield this.blob.checkFile(fn);
                         this.context.log(`${exists} - ${fn}`);
                         if (!exists) {
                             var dl = yield this.client.get(`/anon/gen/radar/${listItem.name}`);
                             yield this.saveStream(listItem.name, dl);
-                            yield this.blob.uploadFile(`temp/${listItem.name}`, fn);
+                            yield this.blob.uploadFile(`D:/local/Temp/output/${listItem.name}`, fn);
                         }
                     }
                 }
@@ -88,6 +97,7 @@ class getter {
         });
     }
     saveStream(fn, stream) {
+        this.context.log(`Writing local: ${fn}`);
         return new Promise(function (resolve, reject) {
             stream.once('close', resolve);
             stream.once('error', reject);
@@ -111,11 +121,16 @@ module.exports = function (context, myTimer) {
     return __awaiter(this, void 0, void 0, function* () {
         context.log('Running radar job');
         try {
-            fs.mkdirSync('./temp');
+            fs.mkdirSync('D:/local/Temp/output');
         }
         catch (e) { }
-        var g = new getter(context);
-        yield g.get();
+        try {
+            var g = new getter(context);
+            yield g.get();
+        }
+        catch (e) {
+            context.log("Problem " + e);
+        }
         //context.done();
     });
 };

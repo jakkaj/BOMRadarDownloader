@@ -41,10 +41,17 @@ class blobs{
         
         return new Promise((good, bad)=>{
             this.blobService.doesBlobExist(this.container, filePath, (error, result)=>{
+                this.context.log(`Check blob for ${filePath}`)
                 if(error){
+                    this.context.log(`Blob error: ${error}`);
                     bad(error);
                 }else{
-                    good(result.exists);
+                    if(result){
+                        good(result.exists);
+                    }else{
+                        this.context.log(`No result was found!`);
+                        good(false);
+                    }                    
                 }
             });
         });
@@ -64,7 +71,7 @@ class getter {
     }
 
     async clean(){
-        await del(['temp/*']);
+        await del(['D:/local/Temp/output/*']);
     }
 
     async get(): Promise<string[]> {
@@ -89,13 +96,14 @@ class getter {
 
                 var fn = this.getName(listItem.name);
                 if(fn != ""){
+                    this.context.log(`Checking blob: ${fn}`);
                     var exists = await this.blob.checkFile(fn);
                     this.context.log(`${exists} - ${fn}`);
 
                     if(!exists){
                         var dl = await this.client.get(`/anon/gen/radar/${listItem.name}`);
                         await this.saveStream(listItem.name, dl);
-                        await this.blob.uploadFile(`temp/${listItem.name}`, fn);
+                        await this.blob.uploadFile(`D:/local/Temp/output/${listItem.name}`, fn);
                     }
                 }                
             }
@@ -105,6 +113,7 @@ class getter {
     }
 
     private saveStream(fn:string, stream:any){
+        this.context.log(`Writing local: ${fn}`);
         return new Promise(function (resolve, reject) {
             stream.once('close', resolve);
             stream.once('error', reject);
@@ -138,11 +147,15 @@ module.exports = async function (context:any, myTimer:any) {
     context.log('Running radar job');   
     
     try{
-        fs.mkdirSync('./temp');
+        fs.mkdirSync('D:/local/Temp/output');
     }catch(e){}
     
-
-    var g = new getter(context);
-    await g.get();
+    try{
+        var g = new getter(context);
+        await g.get();
+    }catch(e){
+        context.log("Problem " + e);
+    }
+    
     //context.done();
 };
