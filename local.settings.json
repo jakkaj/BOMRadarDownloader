@@ -1,0 +1,6 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "DefaultEndpointsProtocol=https;AccountName=jkbomweather;AccountKey=PEov+L2Op7fzvjo9thZvPJSis+AofPb+tbAJXGm0GHvhWndfvaFYUJe3rPoMS7bxj75Itu72XaiXTY2JaBGteg==;EndpointSuffix=core.windows.net"
+  }
+}

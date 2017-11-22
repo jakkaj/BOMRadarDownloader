@@ -2,9 +2,10 @@ import * as ftpClient from 'promise-ftp';
 import * as azure from 'azure-storage';
 import { ErrorOrResult } from 'azure-storage';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as del from 'del';
 
-require('dotenv').config();
+
 
 class blobs{
     /**
@@ -41,7 +42,7 @@ class blobs{
         
         return new Promise((good, bad)=>{
             this.blobService.doesBlobExist(this.container, filePath, (error, result)=>{
-                this.context.log(`Check blob for ${filePath}`)
+                
                 if(error){
                     this.context.log(`Blob error: ${error}`);
                     bad(error);
@@ -64,14 +65,16 @@ class getter {
     private client: any;
     private blob:blobs;
     private context:any;
-    constructor(context:any) {
+    private tempPath:string;
+    constructor(context:any, tempPath:string) {
         this.client = new ftpClient();
         this.blob = new blobs(context);
         this.context=context;
+        this.tempPath = tempPath;
     }
 
     async clean(){
-        await del(['D:/local/Temp/output/*']);
+        await del([`${this.tempPath}/*`], {force:true});
     }
 
     async get(): Promise<string[]> {
@@ -96,14 +99,16 @@ class getter {
 
                 var fn = this.getName(listItem.name);
                 if(fn != ""){
-                    this.context.log(`Checking blob: ${fn}`);
+
                     var exists = await this.blob.checkFile(fn);
                     this.context.log(`${exists} - ${fn}`);
 
                     if(!exists){
                         var dl = await this.client.get(`/anon/gen/radar/${listItem.name}`);
-                        await this.saveStream(listItem.name, dl);
-                        await this.blob.uploadFile(`D:/local/Temp/output/${listItem.name}`, fn);
+                        var localSave = path.join(this.tempPath, listItem.name);
+                        await this.saveStream(localSave, dl);
+                        
+                        await this.blob.uploadFile(localSave, fn);
                     }
                 }                
             }
@@ -117,7 +122,7 @@ class getter {
         return new Promise(function (resolve, reject) {
             stream.once('close', resolve);
             stream.once('error', reject);
-            stream.pipe(fs.createWriteStream(`temp/${fn}`));
+            stream.pipe(fs.createWriteStream(fn));
           });
     }
 
@@ -145,13 +150,16 @@ class getter {
 module.exports = async function (context:any, myTimer:any) {
     
     context.log('Running radar job');   
+    var tempPath:any = process.env.temp;
+    tempPath = path.join(tempPath, "output")
+    try{       
+        fs.mkdirSync(tempPath);
+    }catch(e){
+        context.log(`Could not create ${tempPath} ${e}`);
+    }
     
     try{
-        fs.mkdirSync('D:/local/Temp/output');
-    }catch(e){}
-    
-    try{
-        var g = new getter(context);
+        var g = new getter(context, tempPath);
         await g.get();
     }catch(e){
         context.log("Problem " + e);

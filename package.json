@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/jakkaj/BOMRadarDownloader#readme",
   "devDependencies": {
+    "@types/del": "^3.0.0",
     "@types/ftp": "^0.3.29",
     "nodemon": "^1.12.1",
     "typescript": "^2.6.1"
